@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">aop-part5-chapter04</string>
+    <string name="feed_list">피드 목록</string>
+    <string name="add_feed">피드 등록</string>
+    <string name="feed_content">피드 내용</string>
+    <string name="feed_title">피드 제목</string>
+    <string name="image_preview">이미지 미리보기</string>
+    <string name="flash">플래시</string>
+    <string name="delete">삭제</string>
+    <string name="images_page">(%d/%d)</string>
+    <string name="confirm">확인</string>
 </resources>
