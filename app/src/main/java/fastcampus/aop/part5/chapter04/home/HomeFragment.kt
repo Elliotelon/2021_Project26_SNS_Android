@@ -68,11 +68,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         articleAdapter = ArticleAdapter(onItemClicked = { articleModel ->
             if (auth.currentUser != null) {
                 // 로그인을 한 상태
-                if (auth.currentUser.uid != articleModel.sellerId) {
+                if (auth.currentUser.uid != articleModel.userId) {
 
                     val chatRoom = ChatListItem(
                         buyerId = auth.currentUser.uid,
-                        sellerId = articleModel.sellerId,
+                        sellerId = articleModel.userId,
                         itemTitle = articleModel.title,
                         key = System.currentTimeMillis()
                     )
@@ -82,7 +82,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                         .push()
                         .setValue(chatRoom)
 
-                    userDB.child(articleModel.sellerId)
+                    userDB.child(articleModel.userId)
                         .child(CHILD_CHAT)
                         .push()
                         .setValue(chatRoom)

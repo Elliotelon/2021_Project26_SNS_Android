@@ -18,28 +18,17 @@ import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
+import fastcampus.aop.part5.chapter04.photo.CameraActivity
 import fastcampus.aop.part5.chapter04.DBKey.Companion.DB_ARTICLES
 import fastcampus.aop.part5.chapter04.databinding.ActivityAddArticleBinding
-import fastcampus.aop.part5.chapter04.photo.CameraActivity
+import fastcampus.aop.part5.chapter04.gallery.GalleryActivity
 import fastcampus.aop.part5.chapter04.photo.PhotoListAdapter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 
 class AddArticleActivity : AppCompatActivity() {
 
-    companion object {
-        const val PERMISSION_REQUEST_CODE = 1000
-        const val GALLERY_REQUEST_CODE = 1001
-        const val CAMERA_REQUEST_CODE = 1002
-
-        private const val URI_LIST_KEY = "uriList"
-
-    }
-
     private var imageUriList: ArrayList<Uri> = arrayListOf()
-
-    private val photoListAdapter = PhotoListAdapter { uri -> removePhoto(uri) }
-
     private val auth: FirebaseAuth by lazy {
         Firebase.auth
     }
@@ -52,6 +41,14 @@ class AddArticleActivity : AppCompatActivity() {
         Firebase.database.reference.child(DB_ARTICLES)
     }
 
+    private val photoListAdapter = PhotoListAdapter { uri -> removePhoto(uri) }
+
+    companion object {
+        const val PERMISSION_REQUEST_CODE = 1000
+        const val GALLERY_REQUEST_CODE = 1001
+        const val CAMERA_REQUEST_CODE = 1002
+    }
+
     private lateinit var binding: ActivityAddArticleBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,8 +57,6 @@ class AddArticleActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         initViews()
-
-
     }
 
     private fun initViews() = with(binding) {
@@ -74,7 +69,7 @@ class AddArticleActivity : AppCompatActivity() {
         submitButton.setOnClickListener {
             val title = binding.titleEditText.text.toString()
             val content = binding.contentEditText.text.toString()
-            val userId = auth.currentUser?.uid.orEmpty()
+            val sellerId = auth.currentUser?.uid.orEmpty()
 
             showProgress()
 
@@ -82,10 +77,10 @@ class AddArticleActivity : AppCompatActivity() {
             if (imageUriList.isNotEmpty()) {
                 lifecycleScope.launch {
                     val results = uploadPhoto(imageUriList)
-                    afterUploadPhoto(results, title, content, userId)
+                    afterUploadPhoto(results, title, content, sellerId)
                 }
             } else {
-                uploadArticle(userId, title, content, listOf())
+                uploadArticle(sellerId, title, content, listOf())
             }
         }
     }
@@ -111,8 +106,25 @@ class AddArticleActivity : AppCompatActivity() {
         return@withContext uploadDeferred.awaitAll()
     }
 
-    private fun uploadArticle(userId: String, title: String, content: String, imageUrlList: List<String>) {
-        val model = ArticleModel(userId, title, System.currentTimeMillis(), content, imageUrlList)
+    private fun afterUploadPhoto(results: List<Any>, title: String, content: String, sellerId: String) {
+        val errorResults = results.filterIsInstance<Pair<Uri, Exception>>()
+        val successResults = results.filterIsInstance<String>()
+
+        when {
+            errorResults.isNotEmpty() && successResults.isNotEmpty() -> {
+                photoUploadErrorButContinurDialog(errorResults, successResults, title, content, sellerId)
+            }
+            errorResults.isNotEmpty() && successResults.isEmpty() -> {
+                uploadError()
+            }
+            else -> {
+                uploadArticle(sellerId, title, content, successResults)
+            }
+        }
+    }
+
+    private fun uploadArticle(sellerId: String, title: String, content: String, imageUrlList: List<String>) {
+        val model = ArticleModel(sellerId, title, System.currentTimeMillis(), content, imageUrlList)
         articleDB.push().setValue(model)
 
         hideProgress()
@@ -133,9 +145,10 @@ class AddArticleActivity : AppCompatActivity() {
     }
 
     private fun startGalleryScreen() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT)
-        intent.type = "image/*"
-        startActivityForResult(intent, GALLERY_REQUEST_CODE)
+        startActivityForResult(
+                GalleryActivity.newIntent(this),
+                GALLERY_REQUEST_CODE
+        )
     }
 
     private fun startCameraScreen() {
@@ -160,58 +173,30 @@ class AddArticleActivity : AppCompatActivity() {
 
         when (requestCode) {
             GALLERY_REQUEST_CODE -> {
-                val uri = data?.data
-                if (uri != null) {
-                    imageUriList.add(uri)
-                    photoListAdapter.setPhotoList(imageUriList)
-
-                } else {
-                    Toast.makeText(this, "사진을 가져오지 못했습니다.", Toast.LENGTH_SHORT).show()
-                }
-
-            }
-            CAMERA_REQUEST_CODE -> {
-                data?.let{intent ->
-                   val uriList = intent.getParcelableArrayListExtra<Uri>(URI_LIST_KEY)
-                    uriList?.let {list ->
+                data?.let {
+                    val uriList = it.getParcelableArrayListExtra<Uri>("uriList")
+                    uriList?.let { list ->
                         imageUriList.addAll(list)
                         photoListAdapter.setPhotoList(imageUriList)
                     }
+                } ?: kotlin.run {
+                    Toast.makeText(this, "사진을 가져오지 못했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            CAMERA_REQUEST_CODE -> {
+                data?.let {
+                    val uriList = it.getParcelableArrayListExtra<Uri>("uriList")
+                    uriList?.let { list ->
+                        imageUriList.addAll(list)
+                        photoListAdapter.setPhotoList(imageUriList)
+                    }
+                } ?: kotlin.run {
+                    Toast.makeText(this, "사진을 가져오지 못했습니다.", Toast.LENGTH_SHORT).show()
                 }
             }
             else -> {
                 Toast.makeText(this, "사진을 가져오지 못했습니다.", Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-
-    private fun showPermissionContextPopup() {
-        AlertDialog.Builder(this)
-            .setTitle("권한이 필요합니다.")
-            .setMessage("사진을 가져오기 위해 필요합니다.")
-            .setPositiveButton("동의") { _, _ ->
-                requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
-            }
-            .create()
-            .show()
-    }
-
-    private fun checkExternalStoragePermission(uploadAction: () -> Unit) {
-        when {
-            ContextCompat.checkSelfPermission(
-                    this,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                uploadAction()
-            }
-            shouldShowRequestPermissionRationale(android.Manifest.permission.READ_EXTERNAL_STORAGE) -> {
-                showPermissionContextPopup()
-            }
-            else -> {
-                requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
-            }
-
-
         }
     }
 
@@ -233,21 +218,33 @@ class AddArticleActivity : AppCompatActivity() {
                 .show()
     }
 
-    private fun afterUploadPhoto(results: List<Any>, title: String, content: String, userId: String) {
-        val errorResults = results.filterIsInstance<Pair<Uri, Exception>>()
-        val successResults = results.filterIsInstance<String>()
-
+    private fun checkExternalStoragePermission(uploadAction: () -> Unit) {
         when {
-            errorResults.isNotEmpty() && successResults.isNotEmpty() -> {
-                photoUploadErrorButContinurDialog(errorResults, successResults, title, content, userId)
+            ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                uploadAction()
             }
-            errorResults.isNotEmpty() && successResults.isEmpty() -> {
-                uploadError()
+            shouldShowRequestPermissionRationale(android.Manifest.permission.READ_EXTERNAL_STORAGE) -> {
+                showPermissionContextPopup()
             }
             else -> {
-                uploadArticle(userId, title, content, successResults)
+                requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
             }
         }
+    }
+
+    private fun showPermissionContextPopup() {
+        AlertDialog.Builder(this)
+                .setTitle("권한이 필요합니다.")
+                .setMessage("사진을 가져오기 위해 필요합니다.")
+                .setPositiveButton("동의") { _, _ ->
+                    requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
+                }
+                .create()
+                .show()
+
     }
 
     private fun photoUploadErrorButContinurDialog(

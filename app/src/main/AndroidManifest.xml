@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="fastcampus.aop.part5.chapter04">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />
 
@@ -13,7 +13,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Aoppart5chapter04">
+        android:theme="@style/Theme.Aoppart5chapter04"
+        android:name=".AopPart5Chapter04Application">
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,10 +22,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".home.AddArticleActivity"/>
-        <activity android:name=".chatdetail.ChatRoomActivity"/>
+        <activity android:name=".home.AddArticleActivity" />
+        <activity android:name=".chatdetail.ChatRoomActivity" />
         <activity android:name=".photo.CameraActivity" />
         <activity android:name=".photo.ImagePreviewListActivity" />
+        <activity android:name=".gallery.GalleryActivity"/>
     </application>
 
 </manifest>
